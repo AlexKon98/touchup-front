@@ -1,0 +1,63 @@
+* {
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+input,
+button,
+select {
+  font-family: sans-serif;
+  color: black;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+a {
+  text-decoration: none;
+}
+
+input,
+select {
+  outline: none;
+
+  &:focus,
+  &:active,
+  &:focus-within,
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+.container {
+  display: block;
+  max-width: 1236px;
+  padding: 0 10px;
+  margin: 0 auto;
+}
+
+button {
+  cursor: pointer;
+}
+
+.header, .footer {
+  padding: 10px 0;
+  background-color: rgba(128, 128, 128, .75);
+}
+
+h2 {
+  margin-bottom: 15px;
+}
+
+h1 {
+  margin-bottom: 20px;
+}
+
+.p-inputtext {
+  border: 1px solid black !important;
+}
