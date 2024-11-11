@@ -9,11 +9,11 @@
 </template>
 
 <script lang="ts" setup>
-import type { ContactItem as CItem } from '~/api/modules/contacts/types';
+import type { Contact } from '~/types';
 import ContactItem from './ContactItem.vue';
 
 defineProps<{
-  contacts: CItem[]
+  contacts: Contact[]
 }>();
 </script>
 

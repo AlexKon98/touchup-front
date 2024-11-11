@@ -1,43 +1,43 @@
+import type { Contact } from '~/types';
 import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
-import type { ContactItem } from '~/api/modules/contacts/types';
+
+interface ContactResponse {
+  contact: Contact;
+}
 
 const useContactsStore = defineStore('contacts', () => {
-  const { $api } = useNuxtApp();
-
   const isInitialized = ref<boolean>(false);
   const isFetching = ref<boolean>(true);
-  const contact = ref<ContactItem | null>(null);
-  const contacts = ref<ContactItem[]>([]);
+  const contact = ref<Contact | null>(null);
+  const contacts = ref<Contact[]>([]);
   const search = ref('');
 
   const updateSearch = (text: string) => {
     search.value = text;
   };
 
-  watch(() => search.value, (val) => {
-    if (!val.length) contacts.value.forEach(cnt => cnt.isVisible = true);
-    else {
+  watch(
+    () => search.value,
+    (val) => {
       contacts.value.forEach(cnt => {
-        if (cnt.name.toLowerCase().includes(val.toLowerCase())) cnt.isVisible = true;
-        else cnt.isVisible = false;
-      })
-    }
-  }, { immediate: true });
+        cnt.isVisible = !val.length || cnt.name.toLowerCase().includes(val.toLowerCase());
+      });
+    },
+    { immediate: true }
+  );
 
   const initialize = async () => {
     if (isInitialized.value) return;
 
     try {
       isFetching.value = true;
-
-      const res = await $api.contacts.getContacts();
-
-      res.forEach(cnt => cnt.isVisible = true);
-
-      contacts.value = res;
-
-      isInitialized.value = true;
+      const { data } = await useFetch<Contact[]>('/api/contacts');
+      if (data.value) {
+        data.value.forEach(cnt => (cnt.isVisible = true));
+        contacts.value = data.value;
+        isInitialized.value = true;
+      }
     } catch (err) {
       console.error('Ошибка при загрузке контактов:', err);
     } finally {
@@ -48,10 +48,9 @@ const useContactsStore = defineStore('contacts', () => {
   const getContactById = async (id: number) => {
     try {
       isFetching.value = true;
-
-      if (!contact.value || contact.value.id !== id) {
-        const res = await $api.contacts.getContactById(id);
-        contact.value = res;
+      const { data } = await useFetch<Contact>(`/api/contacts/${id}`);
+      if (data.value) {
+        contact.value = data.value;
       }
     } catch (err) {
       console.error('Ошибка при загрузке контакта:', err);
@@ -60,55 +59,60 @@ const useContactsStore = defineStore('contacts', () => {
     }
   };
 
-  const updateContact = async (data: ContactItem) => {
+  const updateContact = async (contact: Contact) => {
     try {
       isFetching.value = true;
 
-      const res = await $api.contacts.changeContactById(data);
+      const { data } = await useFetch<ContactResponse>(`/api/contacts/${contact.id}`, {
+        method: 'PUT',
+        body: contact,
+      });
+      if (data.value) {
+        const updatedContact = data.value.contact;
 
-      if (res) {
-        const item = contacts.value.find(cnt => cnt.id === res.id);
+        const index = contacts.value.findIndex(cnt => cnt.id === updatedContact.id);
 
-        if (item) {
-          item.name = res.name;
-          item.phone = res.phone;
-          item.email = res.email;
+        if (index !== -1) {
+          contacts.value[index].name = updatedContact.name;
+          contacts.value[index].email = updatedContact.email;
+          contacts.value[index].phone = updatedContact.phone;
         }
+      } else {
+        console.error("Ошибка: data.value пустое или не содержит данные контакта.");
       }
     } catch (err) {
-      console.log(err);
+      console.error('Ошибка при обновлении контакта:', err);
     } finally {
       isFetching.value = false;
     }
   };
 
-  const addNewContact = async (item: Partial<ContactItem>) => {
+  const addNewContact = async (item: Partial<Contact>) => {
     try {
-      const res = await $api.contacts.addNewContact(item);
-      contacts.value.push({
-        ...res,
-        isVisible: res.name.toLowerCase().includes(search.value.toLowerCase()) || !search.value.length
+      const { data } = await useFetch<{message: string, contact: Contact}>('/api/contacts', {
+        method: 'POST',
+        body: item,
       });
+      if (data.value) {
+        contacts.value.push({
+          ...data.value.contact,
+          isVisible: !search.value.length || data.value.contact.name.toLowerCase().includes(search.value.toLowerCase()),
+        });
+      }
     } catch (err) {
-      console.log(err);
+      console.error('Ошибка при добавлении нового контакта:', err);
     }
   };
 
   const deleteContact = async (id: number) => {
     try {
-      const res = await $api.contacts.deleteContactById(id);
-
-      res.forEach(cnt => {
-        if (!search.value.length) cnt.isVisible = true;
-        else {
-          if (cnt.name.toLowerCase().includes(search.value.toLowerCase())) cnt.isVisible = true;
-          else cnt.isVisible = false;
-        }
+      await useFetch(`/api/contacts/${id}`, { method: 'DELETE' });
+      contacts.value = contacts.value.filter(cnt => cnt.id !== id);
+      contacts.value.forEach(cnt => {
+        cnt.isVisible = !search.value.length || cnt.name.toLowerCase().includes(search.value.toLowerCase());
       });
-
-      contacts.value = res;
     } catch (err) {
-      console.log(err);
+      console.error('Ошибка при удалении контакта:', err);
     }
   };
 
@@ -123,16 +127,14 @@ const useContactsStore = defineStore('contacts', () => {
     updateContact,
     addNewContact,
     deleteContact,
-    updateSearch
+    updateSearch,
   };
 });
 
 export const useContacts = async () => {
   const contactsStore = useContactsStore();
-
   if (!contactsStore.isInitialized) {
     await contactsStore.initialize();
   }
-
   return contactsStore;
 };

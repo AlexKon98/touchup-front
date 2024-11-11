@@ -15,10 +15,10 @@
 </template>
 
 <script lang="ts" setup>
-import type { ContactItem } from '~/api/modules/contacts/types';
+import type { Contact } from '~/types';
 
 defineProps<{
-  contact: ContactItem
+  contact: Contact
 }>();
 
 const { deleteContact } = await useContacts();
